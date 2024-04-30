@@ -31,6 +31,29 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+  StartRecordingChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: start_recording_chat.lambda_handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /start-recording-chat
+            Method: POST
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
   DynamoDBTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
