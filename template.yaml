@@ -1,29 +1,38 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Serverless patterns - Amazon API Gateway to AWS Lambda to Amazon DynamoDB (uksb-1tthgi812) (tag:apigw-lambda-dynamodb)
+Description: Sample SAM template that deploys an S3 bucket and Lambda function using a container image
+
 Resources:
-  LambdaFunction:
+  TodamBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+
+  PutLogToDBFunction:
     Type: AWS::Serverless::Function
-    Description: "Lambda function inserts data into DynamoDB table"
     Properties:
-      FunctionName: list_chat_recording_segments
-      Handler: list_chat_recording_segments.lambda_handler
-      Runtime: python3.11
       CodeUri: src/
-      Policies:
-        DynamoDBCrudPolicy:
-          TableName: !Ref DynamoDBTable
+      PackageType: Zip
+      Handler: put_line_log_to_db.lambda_handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+      Architectures:
+        - x86_64
       Events:
-        ApiEvent:
-          Type: Api
+        TodamBucket:
+          Type: S3
           Properties:
-            Path: /
-            Method: GET
-  DynamoDBTable:
-    Type: AWS::Serverless::SimpleTable
-    Properties:
-      TableName: todam_table
+            Bucket: !Ref TodamBucket
+            Events: s3:ObjectCreated:*
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
 Outputs:
-  EndpointUrl:
-    Description: "HTTP REST endpoint URL"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  TodamBucketName:
+    Value: !Ref TodamBucket
+    Description: "TodamBucketName Name"
+  PutLogToDBFunction:
+    Value: !Ref PutLogToDBFunction
+    Description: "PutLogToDBFunction Name"
