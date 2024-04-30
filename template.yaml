@@ -29,6 +29,12 @@ Resources:
       Policies:
         - S3ReadPolicy:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+  DynamoDBTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: todam_table
 Outputs:
   TodamBucketName:
     Value: !Ref TodamBucket
