@@ -31,6 +31,10 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+  StartRecordingChatApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
   StartRecordingChatFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -45,19 +49,41 @@ Resources:
         - x86_64
       Events:
         ApiEvent:
-          Type: HttpApi
+          Type: Api
           Properties:
             Path: /start-recording-chat
             Method: POST
+            RestApiId:
+              Ref: StartRecordingChatApi
       Policies:
         - S3ReadPolicy:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
   DynamoDBTable:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
     Properties:
       TableName: todam_table
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "segment_id"
+          AttributeType: "S"
+        - AttributeName: "send_timestamp"
+          AttributeType: "N"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: "SegmentTimeIndex"
+          KeySchema:
+            - AttributeName: "segment_id"
+              KeyType: "HASH"
+            - AttributeName: "send_timestamp"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "ALL"
 Outputs:
   TodamBucketName:
     Value: !Ref TodamBucket
@@ -65,3 +91,6 @@ Outputs:
   PutLogToDBFunction:
     Value: !Ref PutLogToDBFunction
     Description: "PutLogToDBFunction Name"
+  StartRecordingChatApi:
+    Description: "Start recording chat API Endpoint URL"
+    Value: !Sub "https://${StartRecordingChatApi}.execute.api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"
