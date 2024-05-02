@@ -31,6 +31,34 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RegisteredUserTable
+  ListSegmentMessagesApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  ListSegmentMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: list_segment_messages.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /messages
+            Method: GET
+            RestApiId:
+              Ref: ListSegmentMessagesApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
   StartRecordingChatApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -84,6 +112,17 @@ Resources:
               KeyType: "RANGE"
           Projection:
             ProjectionType: "ALL"
+  RegisteredUserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: registered_user_table
+      AttributeDefinitions:
+        - AttributeName: "user_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "user_id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
 Outputs:
   TodamBucketName:
     Value: !Ref TodamBucket
@@ -91,6 +130,9 @@ Outputs:
   PutLogToDBFunction:
     Value: !Ref PutLogToDBFunction
     Description: "PutLogToDBFunction Name"
+  ListSegmentMessagesApi:
+    Description: "List segment messages API Endpoint URL"
+    Value: !Sub "https://${ListSegmentMessagesApi}.execute.api.${AWS::Region}.amazonaws.com/dev/messages"
   StartRecordingChatApi:
     Description: "Start recording chat API Endpoint URL"
     Value: !Sub "https://${StartRecordingChatApi}.execute.api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"

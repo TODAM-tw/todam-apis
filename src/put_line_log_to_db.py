@@ -6,7 +6,15 @@ import boto3
 
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
-table = dynamodb.Table("todam_table")
+todam_table = dynamodb.Table("todam_table")
+registered_user_table = dynamodb.Table("registered_user_table")
+
+
+def get_user_type_by_id(user_id: str) -> str:
+    response = registered_user_table.get_item(Key={"user_id": user_id})
+    if "Item" in response:
+        return "TAM"
+    return "Client"
 
 
 def lambda_handler(event, context):
@@ -45,16 +53,14 @@ def lambda_handler(event, context):
         "content": content,
         "group_id": group_id,
         "user_id": user_id,
+        "user_type": get_user_type_by_id(user_id),
         "send_timestamp": send_timestamp,
+        "is_segment": False,
     }
 
-    table.put_item(Item=item)
+    todam_table.put_item(Item=item)
 
     return {
         "statusCode": 200,
-        "body": json.dumps(
-            {
-                "message": "hello S3",
-            }
-        ),
+        "body": json.dumps(item),
     }
