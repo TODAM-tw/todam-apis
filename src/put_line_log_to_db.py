@@ -3,6 +3,7 @@ import os
 import uuid
 
 import boto3
+from boto3.dynamodb.conditions import Attr, Key
 
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
@@ -56,9 +57,40 @@ def lambda_handler(event, context):
         "user_type": get_user_type_by_id(user_id),
         "send_timestamp": send_timestamp,
         "is_segment": False,
+        "is_message": True,
     }
 
     todam_table.put_item(Item=item)
+
+    if content == "start recording":
+        uuid_no_hyphen = "".join(str(uuid.uuid4()).split("-"))
+        item = {
+            "id": uuid_no_hyphen,
+            "segment_id": uuid_no_hyphen,
+            "start_timestamp": send_timestamp,
+            "group_id": group_id,
+            "message_id": message_id,
+            "user_id": user_id,
+            "send_timestamp": send_timestamp,
+            "is_segment": True,
+            "is_end": False,
+        }
+        todam_table.put_item(Item=item)
+
+    if content == "end recording":
+        response = todam_table.query(
+            IndexName="GroupTimeIndex",
+            KeyConditionExpression=boto3.dynamodb.conditions.Key("group_id").eq(
+                group_id
+            ),
+            FilterExpression=Attr("is_segment").eq(True) & Attr("is_end").eq(False),
+        )
+        items = response.get("Items", [])
+        if items:
+            last_item = items[-1]
+            last_item["end_timestamp"] = send_timestamp
+            last_item["is_end"] = True
+            todam_table.put_item(Item=last_item)
 
     return {
         "statusCode": 200,

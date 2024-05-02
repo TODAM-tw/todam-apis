@@ -15,8 +15,8 @@ def lambda_handler(event, context):
     # Retrieve the segment details from DynamoDB
     segment_response = table.get_item(Key={"id": segment_id})
     segment = segment_response.get("Item", {})
-    if not segment:
-        return {"statusCode": 404, "body": "Segment not found"}
+    if not segment or not segment.get("is_end") or not segment.get("end_timestamp"):
+        return {"statusCode": 404, "body": "Segment not found or incomplete"}
 
     # Query the messages using the timestamps and group_id
     message_query_params = {
