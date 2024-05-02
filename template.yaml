@@ -92,6 +92,8 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RegisteredUserTable
   ListSegmentsApi:
     Type: AWS::Serverless::Api
     Properties:
