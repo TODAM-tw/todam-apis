@@ -18,6 +18,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+          VERIFY_REGISTRATION_API_URL: !Ref VerifyRegistrationApi
       Architectures:
         - x86_64
       Events:
@@ -33,6 +34,12 @@ Resources:
             TableName: !Ref DynamoDBTable
         - DynamoDBCrudPolicy:
             TableName: !Ref RegisteredUserTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: "*"
   ListSegmentMessagesApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -54,6 +61,32 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ListSegmentMessagesApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+  VerifyRegistrationApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  VerifyRegistrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: verify_registration.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify-registration
+            Method: GET
+            RestApiId:
+              Ref: VerifyRegistrationApi
       Policies:
         - S3ReadPolicy:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
@@ -157,6 +190,9 @@ Outputs:
   ListSegmentMessagesApi:
     Description: "List segment messages API Endpoint URL"
     Value: !Sub "https://${ListSegmentMessagesApi}.execute.api.${AWS::Region}.amazonaws.com/dev/messages"
+  VerifyRegistrationApi:
+    Description: "Verify registration API Endpoint URL"
+    Value: !Sub "https://${VerifyRegistrationApi}.execute.api.${AWS::Region}.amazonaws.com/dev/verify-registration"
   ListSegmentsApi:
     Description: "List segment API Endpoint URL"
     Value: !Sub "https://${ListSegmentsApi}.execute.api.${AWS::Region}.amazonaws.com/dev/segments"

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -7,9 +8,11 @@ import boto3
 from boto3.dynamodb.conditions import Attr
 
 s3 = boto3.client("s3")
+ses_client = boto3.client("ses")
 dynamodb = boto3.resource("dynamodb")
 todam_table = dynamodb.Table("todam_table")
 registered_user_table = dynamodb.Table("registered_user_table")
+verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API_URL')}.execute.api.us-east-1.amazonaws.com/dev/verify-registration"
 
 
 def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
@@ -27,11 +30,60 @@ def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
     return time_in_utc_plus_8
 
 
+def apply_registration(user_id: str, email: str) -> None:
+    # Construct the registration link
+    random_code = str(uuid.uuid4())
+    registration_url = (
+        verify_registration_api_url + f"?user_id={user_id}&code={random_code}"
+    )
+
+    # Email content
+    email_body = (
+        f"Please click on the link to complete your registration: {registration_url}"
+    )
+    email_subject = "Complete Your Registration"
+
+    # Create a new user item in registered_user_table
+    current_time = datetime.now(timezone.utc)
+    unix_timestamp_millis = int(current_time.timestamp() * 1000)
+    item = {
+        "user_id": user_id,
+        "code": random_code,
+        "email": email,
+        "name": email.split("@")[0],
+        "apply_timestamp": unix_timestamp_millis,
+        "verification_code": random_code,
+        "is_verified": False,
+    }
+    registered_user_table.put_item(Item=item)
+    print(f"User {email} has applied for registration")
+
+    # Sending the registration email
+    ses_client.send_email(
+        Source="ptqwe20020413@gmail.com",
+        Destination={"ToAddresses": [email]},
+        Message={
+            "Subject": {"Data": email_subject},
+            "Body": {"Text": {"Data": email_body}},
+        },
+    )
+    print(f"Email sent to {email}")
+
+
 def get_user_type_by_id(user_id: str) -> str:
     response = registered_user_table.get_item(Key={"user_id": user_id})
-    if "Item" in response:
+
+    # Check if the user item exists
+    item = response.get("Item")
+    if not item:
+        return "Client"
+
+    # Check if user is verified
+    is_verified = item.get("is_verified", False)
+    if is_verified:
         return "TAM"
-    return "Client"
+    else:
+        return "Client"
 
 
 def lambda_handler(event, context):
@@ -111,6 +163,11 @@ def lambda_handler(event, context):
                 f"{convert_timestamp_to_utc_plus_8(int(last_item['start_timestamp']))}_{convert_timestamp_to_utc_plus_8(int(last_item['end_timestamp']))}"
             )
             todam_table.put_item(Item=last_item)
+    # Check if the message is a registration request
+    registration_match = re.match(r"/register (\S+@ecloudvalley.com)", content)
+    if registration_match:
+        email = registration_match.group(1)
+        apply_registration(user_id, email)
 
     return {
         "statusCode": 200,
