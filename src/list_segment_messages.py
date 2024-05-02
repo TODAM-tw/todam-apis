@@ -1,7 +1,7 @@
 import json
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 
 # Connect to DynamoDB
 dynamodb = boto3.resource("dynamodb")
@@ -25,6 +25,9 @@ def lambda_handler(event, context):
         & Key("send_timestamp").between(
             segment["start_timestamp"], segment["end_timestamp"]
         ),
+        "FilterExpression": Attr("is_message").eq(
+            True
+        ),  # Filtering for is_message == True
     }
 
     # Execute the query on GSI
