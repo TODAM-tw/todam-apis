@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Sample SAM template that deploys an S3 bucket and Lambda function using a container image
+Description: Todam apis
 
 Resources:
   TodamBucket:
@@ -57,6 +57,30 @@ Resources:
       Policies:
         - S3ReadPolicy:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+  ListSegmentsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  ListSegmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: list_segments.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /segments
+            Method: GET
+            RestApiId:
+              Ref: ListSegmentsApi
+      Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
   StartRecordingChatApi:
@@ -133,6 +157,9 @@ Outputs:
   ListSegmentMessagesApi:
     Description: "List segment messages API Endpoint URL"
     Value: !Sub "https://${ListSegmentMessagesApi}.execute.api.${AWS::Region}.amazonaws.com/dev/messages"
+  ListSegmentsApi:
+    Description: "List segment API Endpoint URL"
+    Value: !Sub "https://${ListSegmentsApi}.execute.api.${AWS::Region}.amazonaws.com/dev/segments"
   StartRecordingChatApi:
     Description: "Start recording chat API Endpoint URL"
     Value: !Sub "https://${StartRecordingChatApi}.execute.api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"
