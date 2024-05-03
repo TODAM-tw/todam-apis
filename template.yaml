@@ -191,13 +191,13 @@ Outputs:
     Description: "PutLogToDBFunction Name"
   ListSegmentMessagesApi:
     Description: "List segment messages API Endpoint URL"
-    Value: !Sub "https://${ListSegmentMessagesApi}.execute.api.${AWS::Region}.amazonaws.com/dev/messages"
+    Value: !Sub "https://${ListSegmentMessagesApi}.execute-api.${AWS::Region}.amazonaws.com/dev/messages"
   VerifyRegistrationApi:
     Description: "Verify registration API Endpoint URL"
-    Value: !Sub "https://${VerifyRegistrationApi}.execute.api.${AWS::Region}.amazonaws.com/dev/verify-registration"
+    Value: !Sub "https://${VerifyRegistrationApi}.execute-api.${AWS::Region}.amazonaws.com/dev/verify-registration"
   ListSegmentsApi:
     Description: "List segment API Endpoint URL"
-    Value: !Sub "https://${ListSegmentsApi}.execute.api.${AWS::Region}.amazonaws.com/dev/segments"
+    Value: !Sub "https://${ListSegmentsApi}.execute-api.${AWS::Region}.amazonaws.com/dev/segments"
   StartRecordingChatApi:
     Description: "Start recording chat API Endpoint URL"
-    Value: !Sub "https://${StartRecordingChatApi}.execute.api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"
+    Value: !Sub "https://${StartRecordingChatApi}.execute-api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"

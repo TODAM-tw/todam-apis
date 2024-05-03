@@ -12,7 +12,7 @@ ses_client = boto3.client("ses")
 dynamodb = boto3.resource("dynamodb")
 todam_table = dynamodb.Table("todam_table")
 registered_user_table = dynamodb.Table("registered_user_table")
-verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API_URL')}.execute.api.us-east-1.amazonaws.com/dev/verify-registration"
+verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API_URL')}.execute-api.us-east-1.amazonaws.com/dev/verify-registration"
 
 
 def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
@@ -31,6 +31,21 @@ def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
 
 
 def apply_registration(user_id: str, email: str) -> None:
+    # Get the current item to check if already registered or recent attempt
+    response = registered_user_table.get_item(Key={"user_id": user_id})
+    if "Item" in response:
+        if response["Item"].get("is_verified"):
+            print("You have already registered.")
+            return  # User is already verified, no need to proceed
+
+        # Check if an attempt was made less than a minute ago
+        current_time_millis = int(datetime.now(timezone.utc).timestamp() * 1000)
+        if (
+            current_time_millis - response["Item"]["apply_timestamp"] < 60 * 1000
+        ):  # 1 minute in milliseconds
+            print("Please wait a moment before requesting a new verification email.")
+            return  # Too soon to resend verification email
+
     # Construct the registration link
     random_code = str(uuid.uuid4())
     registration_url = (
@@ -38,17 +53,14 @@ def apply_registration(user_id: str, email: str) -> None:
     )
 
     # Email content
-    email_body = (
-        f"Please click on the link to complete your registration: {registration_url}"
-    )
-    email_subject = "Complete Your Registration"
+    email_body = f"Hi {email.split('@')[0]}, Please click on the link to complete your registration:\n {registration_url}"
+    email_subject = "Todam - Complete Your Registration"
 
     # Create a new user item in registered_user_table
     current_time = datetime.now(timezone.utc)
     unix_timestamp_millis = int(current_time.timestamp() * 1000)
     item = {
         "user_id": user_id,
-        "code": random_code,
         "email": email,
         "name": email.split("@")[0],
         "apply_timestamp": unix_timestamp_millis,
@@ -60,7 +72,7 @@ def apply_registration(user_id: str, email: str) -> None:
 
     # Sending the registration email
     ses_client.send_email(
-        Source="ptqwe20020413@gmail.com",
+        Source="TODAM <ptqwe20020413@gmail.com>",
         Destination={"ToAddresses": [email]},
         Message={
             "Subject": {"Data": email_subject},
