@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
@@ -8,9 +9,19 @@ dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("todam_table")
 
 
+def format_and_condense_messages(messages: List[dict]) -> str:
+    formatted_messages = [
+        f'{message["user_type"]}: {message["content"]}' for message in messages
+    ]
+    return "\\n".join(formatted_messages)
+
+
 def lambda_handler(event, context):
     # Extract segment_id from query parameters
     segment_id = event["queryStringParameters"]["segment_id"]
+    output_format = event["queryStringParameters"].get(
+        "output"
+    )  # Get the 'output' query parameter
 
     # Retrieve the segment details from DynamoDB
     segment_response = table.get_item(Key={"id": segment_id})
@@ -45,18 +56,27 @@ def lambda_handler(event, context):
         for item in response.get("Items", [])
     ]
 
-    # Create the response body
-    result = {
-        "group_id": segment["group_id"],
-        "segment_id": segment_id,
-        "start_timestamp": int(segment["start_timestamp"]),
-        "end_timestamp": int(segment["end_timestamp"]),
-        "messages": messages,
-    }
+    if output_format == "text":
+        # If output format is 'text', use the format_and_condense_messages function
+        formatted_text = format_and_condense_messages(messages)
+        return {
+            "statusCode": 200,
+            "body": formatted_text,
+            "headers": {"Content-Type": "text/plain"},
+        }
+    else:
+        # Create the response body for standard JSON output
+        result = {
+            "group_id": segment["group_id"],
+            "segment_id": segment_id,
+            "start_timestamp": int(segment["start_timestamp"]),
+            "end_timestamp": int(segment["end_timestamp"]),
+            "messages": messages,
+        }
 
-    # Return the formatted response
-    return {
-        "statusCode": 200,
-        "body": json.dumps(result),
-        "headers": {"Content-Type": "application/json"},
-    }
+        # Return the formatted response
+        return {
+            "statusCode": 200,
+            "body": json.dumps(result),
+            "headers": {"Content-Type": "application/json"},
+        }
