@@ -1,20 +1,13 @@
 import json
-import os
-import re
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import boto3
-from boto3.dynamodb.conditions import Attr
 
 s3 = boto3.client("s3")
 ses_client = boto3.client("ses")
 dynamodb = boto3.resource("dynamodb")
 todam_table = dynamodb.Table("todam_table")
 registered_user_table = dynamodb.Table("registered_user_table")
-
-
-from datetime import datetime, timedelta, timezone
 
 
 def verify_registration(user_id: str, code: str) -> bool:
