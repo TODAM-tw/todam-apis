@@ -9,8 +9,10 @@ table = dynamodb.Table("todam_table")
 
 
 def lambda_handler(event, context):
-    # Always filter to ensure that only segments are returned
-    base_filter = Attr("is_segment").eq(True)
+    # Always filter out segments that are not resolved
+    base_filter = Attr("is_segment").eq(True) & (
+        Attr("is_resolved").eq(False) | Attr("is_resolved").not_exists()
+    )
 
     # Check if query string parameters are present and contain group_id
     group_id = (
