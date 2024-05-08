@@ -66,6 +66,32 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+  CreateTicketApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  CreateTicketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: create_ticket.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /tickets
+            Method: POST
+            RestApiId:
+              Ref: CreateTicketApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
   VerifyRegistrationApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -192,6 +218,9 @@ Outputs:
   ListSegmentMessagesApi:
     Description: "List segment messages API Endpoint URL"
     Value: !Sub "https://${ListSegmentMessagesApi}.execute-api.${AWS::Region}.amazonaws.com/dev/messages"
+  CreateTicketApi:
+    Description: "List segment messages API Endpoint URL"
+    Value: !Sub "https://${CreateTicketApi}.execute-api.${AWS::Region}.amazonaws.com/dev/tickets"
   VerifyRegistrationApi:
     Description: "Verify registration API Endpoint URL"
     Value: !Sub "https://${VerifyRegistrationApi}.execute-api.${AWS::Region}.amazonaws.com/dev/verify-registration"
