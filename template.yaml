@@ -77,6 +77,8 @@ Resources:
       PackageType: Zip
       Handler: create_ticket.lambda_handler
       Runtime: python3.11
+      Layers:
+        - !Ref CreateTicketLayer
       Architectures:
         - x86_64
       Events:
@@ -92,6 +94,16 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+  CreateTicketLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: create-ticket-layer
+      Description: A layer for Python create ticket function
+      ContentUri: layers/
+      CompatibleRuntimes:
+        - python3.11
+      LicenseInfo: 'Apache-2.0'
+      RetentionPolicy: Retain
   VerifyRegistrationApi:
     Type: AWS::Serverless::Api
     Properties:
