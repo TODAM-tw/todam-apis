@@ -77,6 +77,7 @@ Resources:
       PackageType: Zip
       Handler: create_ticket.lambda_handler
       Runtime: python3.11
+      Timeout: 15
       Layers:
         - !Ref CreateTicketLayer
       Architectures:
@@ -94,6 +95,18 @@ Resources:
             BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:DescribeParameters
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CreateTicketApiKey"
+        - Statement:
+          - Effect: Allow
+            Action:
+              - kms:Decrypt
+            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
   CreateTicketLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:

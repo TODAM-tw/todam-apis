@@ -1,20 +1,25 @@
 import json
+import os
 
 import boto3
 import requests
 from boto3.dynamodb.conditions import And, Attr
-import os
 
 # Connect to DynamoDB
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table("todam_table")
+
+# Get API Key from Parameter Store
+ssm = boto3.client("ssm")
+parameter = ssm.get_parameter(Name="CreateTicketApiKey", WithDecryption=True)
+api_key = parameter["Parameter"]["Value"]
 
 
 def api_create_ticket(payload: dict) -> dict:
     request_url = (
         "https://d0e7i3hn2k.execute-api.us-west-2.amazonaws.com/api-gateway-for-intern?"
     )
-    headers = {"x-api-key": os.environ["CREATE_TICKET_API_KEY"]}
+    headers = {"x-api-key": api_key}
     response = requests.post(
         request_url,
         json=payload,
@@ -26,7 +31,8 @@ def api_create_ticket(payload: dict) -> dict:
 def lambda_handler(event, context):
     # Get the api payload
     payload = json.loads(event["body"])
-
+    redacted_api_key = api_key[:4] + "*" * 36
+    print("API Key: ", redacted_api_key)
     # Extract the required fields from the payload
     create_ticket_payload = {
         "ticket_subject": payload["ticket_subject"],
