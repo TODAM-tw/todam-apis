@@ -10,9 +10,22 @@ from boto3.dynamodb.conditions import Attr
 s3 = boto3.client("s3")
 ses_client = boto3.client("ses")
 dynamodb = boto3.resource("dynamodb")
-todam_table = dynamodb.Table("todam_table")
+todam_table_name = os.environ.get("TODAM_TABLE", "todam_table")
+todam_table = dynamodb.Table(todam_table_name)
 registered_user_table = dynamodb.Table("registered_user_table")
 verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API_URL')}.execute-api.us-east-1.amazonaws.com/dev/verify-registration"
+sqs = boto3.client("sqs")
+parse_image_fifo_queue_url = os.environ["PARSE_IMAGE_FIFO_QUEUE_URL"]
+
+
+def send_message_to_sqs(
+    message: dict, message_group_id: str = "default_message_group_id"
+) -> None:
+    sqs.send_message(
+        QueueUrl=parse_image_fifo_queue_url,
+        MessageBody=json.dumps(message),
+        message_group_id=message_group_id,
+    )
 
 
 def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
@@ -108,6 +121,19 @@ def lambda_handler(event, context):
     key = event["Records"][0]["s3"]["object"]["key"]
 
     obj = s3.get_object(Bucket=bucket, Key=key)
+
+    # Check object key ends with .log
+    if not key.endswith(".log"):
+        # Send event to FIFO SQS for image parsing
+
+        print("This file is not a log file.")
+        return {
+            "statusCode": 200,
+            "body": json.dumps(
+                "This API Ignored non-log file. but it will send to model to parse image"
+            ),
+        }
+
     data = obj["Body"].read().decode("utf-8")
     data = json.loads(data)
 
@@ -115,26 +141,37 @@ def lambda_handler(event, context):
     print(data)
 
     # Extract data
-    message_type = data["events"][0]["message"]["type"]
-    message_id = data["events"][0]["message"]["id"]
-    content = data["events"][0]["message"]["text"]
-    group_id = data["events"][0]["source"]["groupId"]
-    user_id = data["events"][0]["source"]["userId"]
-    send_timestamp = data["events"][0]["timestamp"]
+    message = data["events"][0]["message"]
+    message_type = message.get("type")
+    message_id = message.get("id")
+    content = message.get("text", "")
+    source = data["events"][0]["source"]
+    group_id = source.get("groupId")
+    user_id = source.get("userId")
+    send_timestamp = data["events"][0].get("timestamp")
 
     # Generate UUID
     random_uuid = str(uuid.uuid4())
     uuid_no_hyphen = "".join(random_uuid.split("-"))
 
+    # If the message_type is image, send it to the image parsing service
+    if message_type == "image":
+        parse_image_message = {
+            "dynamodb_table_name": todam_table_name,
+            "dynamodb_item_id": uuid_no_hyphen,
+        }
+        send_message_to_sqs(message=parse_image_message)
+
     # Put data to DynamoDB
     item = {
         "id": uuid_no_hyphen,
+        "s3_object_key": key,
         "message_type": message_type,
         "message_id": message_id,
         "content": content,
         "group_id": group_id,
         "user_id": user_id,
-        "user_type": get_user_type_by_id(user_id),
+        "user_type": (get_user_type_by_id(user_id) if user_id else None),
         "send_timestamp": send_timestamp,
         "is_segment": False,
         "is_message": True,
@@ -146,6 +183,7 @@ def lambda_handler(event, context):
         uuid_no_hyphen = "".join(str(uuid.uuid4()).split("-"))
         item = {
             "id": uuid_no_hyphen,
+            "s3_object_key": key,
             "segment_id": uuid_no_hyphen,
             "start_timestamp": send_timestamp,
             "group_id": group_id,
