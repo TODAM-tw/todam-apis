@@ -77,7 +77,7 @@ Resources:
       PackageType: Zip
       Handler: create_ticket.lambda_handler
       Runtime: python3.11
-      Timeout: 15
+      Timeout: 30
       Layers:
         - !Ref CreateTicketLayer
       Architectures:
