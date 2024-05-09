@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import boto3
 from boto3.dynamodb.conditions import Attr
@@ -17,6 +18,11 @@ registered_user_table = dynamodb.Table("registered_user_table")
 verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API_URL')}.execute-api.us-east-1.amazonaws.com/dev/verify-registration"
 sqs = boto3.client("sqs")
 parse_image_fifo_queue_url = os.environ["PARSE_IMAGE_FIFO_QUEUE_URL"]
+lambda_client = boto3.client("lambda")
+
+parse_image_lambda_function_name = os.environ["PARSE_IMAGE_LAMBDA_FUNCTION_NAME"]
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"}
 
 
 def send_message_to_sqs(
@@ -122,21 +128,31 @@ def get_user_type_by_id(user_id: str) -> str:
 
 
 def lambda_handler(event, context):
-    print("Triggered by S3 Put event")
     print("=====================================")
+    print("Triggered by S3 Put event")
     print("Event:", event)
     print("=====================================")
 
     bucket = os.environ["S3_BUCKET"]
     key = event["Records"][0]["s3"]["object"]["key"]
-
+    path = Path(key)
+    file_extension = path.suffix.lower()
     obj = s3.get_object(Bucket=bucket, Key=key)
 
     # Check object key ends with .log
-    if not key.endswith(".log"):
-        # Send event to FIFO SQS for image parsing
+    if file_extension in IMAGE_EXTENSIONS:
+        invoke_parse_image_lambda_paylod = event
 
-        print("This file is not a log file.")
+        lambda_client.invoke(
+            FunctionName=parse_image_lambda_function_name,
+            InvocationType="Event",
+            Payload=json.dumps(invoke_parse_image_lambda_paylod),
+        )
+        print("=====================================")
+        print(f"Get object from S3, object key: {key}")
+        print("It is an image file. Send to Parse Image Lambda.")
+        print(f"Invoke Parse Image Lambda: {parse_image_lambda_function_name}")
+        print("=====================================")
         return {
             "statusCode": 200,
             "body": json.dumps(
