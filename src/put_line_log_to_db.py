@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import boto3
 from boto3.dynamodb.conditions import Attr
+from botocore.exceptions import ClientError
 
 s3 = boto3.client("s3")
 ses_client = boto3.client("ses")
@@ -20,12 +21,21 @@ parse_image_fifo_queue_url = os.environ["PARSE_IMAGE_FIFO_QUEUE_URL"]
 
 def send_message_to_sqs(
     message: dict, message_group_id: str = "default_message_group_id"
-) -> None:
-    sqs.send_message(
-        QueueUrl=parse_image_fifo_queue_url,
-        MessageBody=json.dumps(message),
-        message_group_id=message_group_id,
-    )
+) -> dict:
+    try:
+        response = sqs.send_message(
+            QueueUrl=parse_image_fifo_queue_url,
+            MessageBody=json.dumps(message),
+            MessageGroupId=message_group_id,
+        )
+        print(f"Message sent successfully. MessageId: {response['MessageId']}")
+        return response
+    except ClientError as e:
+        print(f"Error sending message to SQS: {e.response['Error']['Message']}")
+        raise e
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        raise e
 
 
 def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
