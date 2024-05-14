@@ -3,10 +3,28 @@ Transform: AWS::Serverless-2016-10-31
 Description: Todam apis
 
 Resources:
+# TODO - 我現在是手動上去 AWS Console 配置 S3 的公開權限，但理想是要在 AWS SAM 上面實現
   TodamBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+  TodamBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref TodamBucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Principal: "*"
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${TodamBucket}/jpg/*"
+
   ParseImageFifoQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -188,7 +206,7 @@ Resources:
   ListSegmentsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: src/list_segments_function
       PackageType: Zip
       Handler: list_segments.lambda_handler
       Runtime: python3.11
