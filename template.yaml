@@ -1,29 +1,293 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Serverless patterns - Amazon API Gateway to AWS Lambda to Amazon DynamoDB (uksb-1tthgi812) (tag:apigw-lambda-dynamodb)
+Description: Todam apis
+
 Resources:
-  LambdaFunction:
-    Type: AWS::Serverless::Function
-    Description: "Lambda function inserts data into DynamoDB table"
+  TodamBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      FunctionName: list_chat_recording_segments
-      Handler: list_chat_recording_segments.lambda_handler
-      Runtime: python3.11
+      BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+  ParseImageFifoQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: parse-message-queue.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+  ParseImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
       CodeUri: src/
+      PackageType: Zip
+      Handler: parse_image.lambda_handler
+      Runtime: python3.11
+      Layers:
+        - !Ref CreateTicketLayer
+      Environment:
+        Variables:
+          S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+          PARSE_IMAGE_FIFO_QUEUE_URL: !Ref ParseImageFifoQueue
+          TODAM_TABLE_NAME: !Ref DynamoDBTable
+          PARSE_IMAGE_API_URL: "https://binuixhcp9.execute-api.us-east-1.amazonaws.com/api-test-stage/todam-bedrock-image-recognition"
+      Architectures:
+        - x86_64
       Policies:
-        DynamoDBCrudPolicy:
-          TableName: !Ref DynamoDBTable
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ParseImageFifoQueue.QueueName
+  PutLogToDBFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: put_line_log_to_db.lambda_handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+          VERIFY_REGISTRATION_API_URL: !Ref VerifyRegistrationApi
+          PARSE_IMAGE_FIFO_QUEUE_URL: !Ref ParseImageFifoQueue
+          TODAM_TABLE_NAME: !Ref DynamoDBTable
+          PARSE_IMAGE_LAMBDA_FUNCTION_NAME: !Ref ParseImageFunction
+      Architectures:
+        - x86_64
+      Events:
+        TodamBucket:
+          Type: S3
+          Properties:
+            Bucket: !Ref TodamBucket
+            Events: s3:ObjectCreated:*
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RegisteredUserTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ParseImageFifoQueue.QueueName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ParseImageFunction
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: "*"
+  ListSegmentMessagesApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  ListSegmentMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: list_segment_messages.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
       Events:
         ApiEvent:
           Type: Api
           Properties:
-            Path: /
+            Path: /messages
             Method: GET
+            RestApiId:
+              Ref: ListSegmentMessagesApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+  CreateTicketApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  CreateTicketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: create_ticket.lambda_handler
+      Runtime: python3.11
+      Timeout: 30
+      Layers:
+        - !Ref CreateTicketLayer
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /tickets
+            Method: POST
+            RestApiId:
+              Ref: CreateTicketApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:DescribeParameters
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CreateTicketApiKey"
+        - Statement:
+          - Effect: Allow
+            Action:
+              - kms:Decrypt
+            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
+  CreateTicketLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: create-ticket-layer
+      Description: A layer for Python create ticket function
+      ContentUri: layers/
+      CompatibleRuntimes:
+        - python3.11
+      LicenseInfo: 'Apache-2.0'
+      RetentionPolicy: Retain
+  VerifyRegistrationApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  VerifyRegistrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: verify_registration.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /verify-registration
+            Method: GET
+            RestApiId:
+              Ref: VerifyRegistrationApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RegisteredUserTable
+  ListSegmentsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  ListSegmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: list_segments.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /segments
+            Method: GET
+            RestApiId:
+              Ref: ListSegmentsApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+  StartRecordingChatApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  StartRecordingChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      PackageType: Zip
+      Handler: start_recording_chat.lambda_handler
+      Runtime: python3.11
+      Environment:
+        Variables:
+          S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /start-recording-chat
+            Method: POST
+            RestApiId:
+              Ref: StartRecordingChatApi
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
   DynamoDBTable:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
     Properties:
       TableName: todam_table
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "group_id"
+          AttributeType: "S"
+        - AttributeName: "send_timestamp"
+          AttributeType: "N"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: "GroupTimeIndex"
+          KeySchema:
+            - AttributeName: "group_id"
+              KeyType: "HASH"
+            - AttributeName: "send_timestamp"
+              KeyType: "RANGE"
+          Projection:
+            ProjectionType: "ALL"
+  RegisteredUserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: registered_user_table
+      AttributeDefinitions:
+        - AttributeName: "user_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "user_id"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
 Outputs:
-  EndpointUrl:
-    Description: "HTTP REST endpoint URL"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  TodamBucketName:
+    Value: !Ref TodamBucket
+    Description: "TodamBucketName Name"
+  PutLogToDBFunction:
+    Value: !Ref PutLogToDBFunction
+    Description: "PutLogToDBFunction Name"
+  ListSegmentMessagesApi:
+    Description: "List segment messages API Endpoint URL"
+    Value: !Sub "https://${ListSegmentMessagesApi}.execute-api.${AWS::Region}.amazonaws.com/dev/messages"
+  CreateTicketApi:
+    Description: "List segment messages API Endpoint URL"
+    Value: !Sub "https://${CreateTicketApi}.execute-api.${AWS::Region}.amazonaws.com/dev/tickets"
+  VerifyRegistrationApi:
+    Description: "Verify registration API Endpoint URL"
+    Value: !Sub "https://${VerifyRegistrationApi}.execute-api.${AWS::Region}.amazonaws.com/dev/verify-registration"
+  ListSegmentsApi:
+    Description: "List segment API Endpoint URL"
+    Value: !Sub "https://${ListSegmentsApi}.execute-api.${AWS::Region}.amazonaws.com/dev/segments"
+  StartRecordingChatApi:
+    Description: "Start recording chat API Endpoint URL"
+    Value: !Sub "https://${StartRecordingChatApi}.execute-api.${AWS::Region}.amazonaws.com/dev/start-recording-chat"
