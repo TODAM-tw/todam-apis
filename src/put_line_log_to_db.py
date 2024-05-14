@@ -179,6 +179,7 @@ def lambda_handler(event, context):
     # Generate UUID
     random_uuid = str(uuid.uuid4())
     uuid_no_hyphen = "".join(random_uuid.split("-"))
+    print(f"Generated UUID: {uuid_no_hyphen}")
 
     # If the message_type is image, send it to the image parsing service
     if message_type == "image":
@@ -206,11 +207,12 @@ def lambda_handler(event, context):
     todam_table.put_item(Item=item)
 
     if content == "start recording":
-        uuid_no_hyphen = "".join(str(uuid.uuid4()).split("-"))
+        uuid_no_hyphen_for_segment = "".join(str(uuid.uuid4()).split("-"))
+        print(f"Generated UUID for segment: {uuid_no_hyphen_for_segment}")
         item = {
-            "id": uuid_no_hyphen,
+            "id": uuid_no_hyphen_for_segment,
             "s3_object_key": key,
-            "segment_id": uuid_no_hyphen,
+            "segment_id": uuid_no_hyphen_for_segment,
             "start_timestamp": send_timestamp,
             "group_id": group_id,
             "message_id": message_id,
