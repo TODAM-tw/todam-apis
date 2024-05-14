@@ -45,7 +45,7 @@ Resources:
           S3_BUCKET: !Sub "todam-bucket-${AWS::AccountId}-${AWS::Region}"
           PARSE_IMAGE_FIFO_QUEUE_URL: !Ref ParseImageFifoQueue
           TODAM_TABLE_NAME: !Ref DynamoDBTable
-          PARSE_IMAGE_API_URL: "https://binuixhcp9.execute-api.us-east-1.amazonaws.com/api-test-stage/todam-bedrock-image-recognition"
+          PARSE_IMAGE_API_URL: "https://binuixhcp9.execute-api.us-east-1.amazonaws.com/dev/todam-bedrock-image-recognition"
       Architectures:
         - x86_64
       Policies:
