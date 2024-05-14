@@ -58,7 +58,7 @@ Resources:
   PutLogToDBFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: src/put_line_log_to_db_function
       PackageType: Zip
       Handler: put_line_log_to_db.lambda_handler
       Runtime: python3.11
@@ -101,7 +101,7 @@ Resources:
   ListSegmentMessagesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: src/list_segment_messages_function
       PackageType: Zip
       Handler: list_segment_messages.lambda_handler
       Runtime: python3.11
@@ -127,7 +127,7 @@ Resources:
   CreateTicketFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: src/create_ticket_function
       PackageType: Zip
       Handler: create_ticket.lambda_handler
       Runtime: python3.11
@@ -178,7 +178,7 @@ Resources:
   VerifyRegistrationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: src/verify_registration_function
       PackageType: Zip
       Handler: verify_registration.lambda_handler
       Runtime: python3.11
