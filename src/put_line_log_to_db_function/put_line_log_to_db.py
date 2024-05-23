@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -142,6 +143,8 @@ def lambda_handler(event, context):
     # Check object key ends with .log
     if file_extension in IMAGE_EXTENSIONS:
         invoke_parse_image_lambda_paylod = event
+
+        time.sleep(2)
 
         lambda_client.invoke(
             FunctionName=parse_image_lambda_function_name,

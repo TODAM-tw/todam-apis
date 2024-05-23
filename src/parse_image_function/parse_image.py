@@ -45,7 +45,7 @@ def receive_message_from_sqs(queue_url: str) -> dict:
             QueueUrl=queue_url,
             MaxNumberOfMessages=1,
             VisibilityTimeout=30,
-            WaitTimeSeconds=0,
+            WaitTimeSeconds=5,
         )
         return response
     except (ClientError, BotoCoreError) as e:
