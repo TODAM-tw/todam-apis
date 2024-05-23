@@ -21,6 +21,9 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"}
 def api_parse_image(payload: dict):
     """Send a POST request to parse an image."""
     try:
+        print("============ Call API - parse image ===========")
+        print(f"Payload: {payload}")
+        print("==================================")
         response = requests.post(parse_image_api_url, json=payload)
         response.raise_for_status()
         # Return a structured dictionary that can be easily used or serialized
@@ -42,7 +45,7 @@ def receive_message_from_sqs(queue_url: str) -> dict:
             QueueUrl=queue_url,
             MaxNumberOfMessages=1,
             VisibilityTimeout=30,
-            WaitTimeSeconds=0,
+            WaitTimeSeconds=5,
         )
         return response
     except (ClientError, BotoCoreError) as e:
@@ -63,7 +66,9 @@ def lambda_handler(event, context):
     print("============ Receive message from SQS ===========")
     response = receive_message_from_sqs(parse_image_fifo_queue_url)
     messages = response.get("Messages", [])
+    message_id = messages[0]["MessageId"]
     print(f"Received {len(messages)} messages from SQS")
+    print(f"Message ID: {message_id}")
     print("==================================")
     if not messages:
         return {"statusCode": 200, "body": json.dumps("No messages to process")}
