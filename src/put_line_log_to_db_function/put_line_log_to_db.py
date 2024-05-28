@@ -1,14 +1,16 @@
 import json
+import logging
 import os
 import re
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
 from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
+from time_util import convert_timestamp_to_utc_plus_8
 
 s3 = boto3.client("s3")
 ses_client = boto3.client("ses")
@@ -20,10 +22,25 @@ verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API
 sqs = boto3.client("sqs")
 parse_image_fifo_queue_url = os.environ["PARSE_IMAGE_FIFO_QUEUE_URL"]
 lambda_client = boto3.client("lambda")
+STICKERS_JSON_PATH = "stickers.json"
 
 parse_image_lambda_function_name = os.environ["PARSE_IMAGE_LAMBDA_FUNCTION_NAME"]
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"}
+
+# Configure logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def load_stickers():
+    try:
+        with open(STICKERS_JSON_PATH, "r") as f:
+            stickers = json.load(f)
+        return stickers
+    except Exception as e:
+        logger.error(f"Error loading stickers from {STICKERS_JSON_PATH}: {e}")
+        raise
 
 
 def send_message_to_sqs(
@@ -43,21 +60,6 @@ def send_message_to_sqs(
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         raise e
-
-
-def convert_timestamp_to_utc_plus_8(timestamp: int) -> str:
-    # Convert milliseconds to seconds
-    if timestamp > 1e10:  # Check if timestamp is likely in milliseconds
-        timestamp /= 1000  # Convert from milliseconds to seconds
-
-    utc_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-    utc_plus_8 = timezone(timedelta(hours=8))
-    time_in_utc_plus_8 = utc_time.astimezone(utc_plus_8)
-
-    format = "%Y-%m-%d %H:%M:%S"
-    time_in_utc_plus_8 = time_in_utc_plus_8.strftime(format)
-
-    return time_in_utc_plus_8
 
 
 def apply_registration(user_id: str, email: str) -> None:
@@ -184,20 +186,23 @@ def lambda_handler(event, context):
     uuid_no_hyphen = "".join(random_uuid.split("-"))
     print(f"Generated UUID: {uuid_no_hyphen}")
 
-    # If the message is a sticker with packageId=1 and stickerId=2, set content to "start recording"
+    # Check if the message is a sticker
+    stickers = load_stickers()
     if message_type == "sticker":
-        if message.get("packageId") == "1" and message.get("stickerId") == "2":
-            content = "start recording"
-        elif (
-            message.get("packageId") == "11537"
-            and message.get("stickerId") == "52002738"
-        ):
-            content = "start recording"
-        elif (
-            message.get("packageId") == "11537"
-            and message.get("stickerId") == "52002739"
-        ):
-            content = "end recording"
+        for sticker in stickers.get("start_recording", []):
+            if (
+                message.get("packageId") == sticker["packageId"]
+                and message.get("stickerId") == sticker["stickerId"]
+            ):
+                content = "start recording"
+                break
+        for sticker in stickers.get("end_recording", []):
+            if (
+                message.get("packageId") == sticker["packageId"]
+                and message.get("stickerId") == sticker["stickerId"]
+            ):
+                content = "end recording"
+                break
 
     # If the message_type is image, send it to the image parsing service
     if message_type == "image":
