@@ -184,6 +184,21 @@ def lambda_handler(event, context):
     uuid_no_hyphen = "".join(random_uuid.split("-"))
     print(f"Generated UUID: {uuid_no_hyphen}")
 
+    # If the message is a sticker with packageId=1 and stickerId=2, set content to "start recording"
+    if message_type == "sticker":
+        if message.get("packageId") == "1" and message.get("stickerId") == "2":
+            content = "start recording"
+        elif (
+            message.get("packageId") == "11537"
+            and message.get("stickerId") == "52002738"
+        ):
+            content = "start recording"
+        elif (
+            message.get("packageId") == "11537"
+            and message.get("stickerId") == "52002739"
+        ):
+            content = "end recording"
+
     # If the message_type is image, send it to the image parsing service
     if message_type == "image":
         parse_image_message = {
