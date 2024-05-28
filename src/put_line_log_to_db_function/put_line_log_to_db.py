@@ -210,6 +210,17 @@ def lambda_handler(event, context):
     todam_table.put_item(Item=item)
 
     if content == "start recording":
+        # Check if the user is registered and verified
+        user_response = registered_user_table.get_item(Key={"user_id": user_id})
+        if "Item" not in user_response or not user_response["Item"].get(
+            "is_verified", False
+        ):
+            print("User is not registered or not verified, start recording failed.")
+            return {
+                "statusCode": 403,
+                "body": json.dumps("User is not registered or not verified."),
+            }
+
         # Check if there is an ongoing recording
         response = todam_table.query(
             IndexName="GroupTimeIndex",
@@ -221,17 +232,16 @@ def lambda_handler(event, context):
         items = response.get("Items", [])
 
         if items:
-            # 已有未結束的錄影段落，發送提醒郵件
+            # Send an email to the user about the ongoing recording
             ongoing_segment = items[-1]
             segment_id = ongoing_segment["segment_id"]
             start_timestamp = convert_timestamp_to_utc_plus_8(
                 int(ongoing_segment["start_timestamp"])
             )
 
-            # 獲取用戶的電子郵件地址
-            response = registered_user_table.get_item(Key={"user_id": user_id})
-            if "Item" in response and "email" in response["Item"]:
-                user_email = response["Item"]["email"]
+            # Get the user's email address
+            if "email" in user_response["Item"]:
+                user_email = user_response["Item"]["email"]
                 email_subject = "Recording Already Started"
                 email_body = f"Hi, your group {group_id} is already recording.\nSegment ID: {segment_id}\nStart Time: {start_timestamp}"
 
@@ -275,30 +285,39 @@ def lambda_handler(event, context):
         todam_table.put_item(Item=item)
 
         # Get the user's email address
-        response = registered_user_table.get_item(Key={"user_id": user_id})
-        if "Item" in response and "email" in response["Item"]:
-            user_email = response["Item"]["email"]
-            email_subject = "Recording Started"
-            email_body = (
-                f"Hi, the recording has started for your message in group {group_id}."
-            )
+        user_email = user_response["Item"]["email"]
+        email_subject = "Recording Started"
+        email_body = (
+            f"Hi, the recording has started for your message in group {group_id}."
+        )
 
-            try:
-                ses_client.send_email(
-                    Source="TODAM <ptqwe20020413@gmail.com>",
-                    Destination={"ToAddresses": [user_email]},
-                    Message={
-                        "Subject": {"Data": email_subject},
-                        "Body": {"Text": {"Data": email_body}},
-                    },
-                )
-                print(f"Email sent to {user_email}")
-            except ClientError as e:
-                print(f"Error sending email: {e.response['Error']['Message']}")
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
+        try:
+            ses_client.send_email(
+                Source="TODAM <ptqwe20020413@gmail.com>",
+                Destination={"ToAddresses": [user_email]},
+                Message={
+                    "Subject": {"Data": email_subject},
+                    "Body": {"Text": {"Data": email_body}},
+                },
+            )
+            print(f"Email sent to {user_email}")
+        except ClientError as e:
+            print(f"Error sending email: {e.response['Error']['Message']}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
     if content == "end recording":
+        # Check if the user is registered and verified
+        user_response = registered_user_table.get_item(Key={"user_id": user_id})
+        if "Item" not in user_response or not user_response["Item"].get(
+            "is_verified", False
+        ):
+            print("User is not registered or not verified, end recording failed.")
+            return {
+                "statusCode": 403,
+                "body": json.dumps("User is not registered or not verified."),
+            }
+
         response = todam_table.query(
             IndexName="GroupTimeIndex",
             KeyConditionExpression=boto3.dynamodb.conditions.Key("group_id").eq(
@@ -318,37 +337,33 @@ def lambda_handler(event, context):
             todam_table.put_item(Item=last_item)
 
             # Get the user's email address
-            response = registered_user_table.get_item(Key={"user_id": user_id})
-            if "Item" in response and "email" in response["Item"]:
-                user_email = response["Item"]["email"]
-                email_subject = "Recording Ended"
-                start_time = convert_timestamp_to_utc_plus_8(
-                    int(last_item["start_timestamp"])
-                )
-                end_time = convert_timestamp_to_utc_plus_8(
-                    int(last_item["end_timestamp"])
-                )
-                email_body = (
-                    f"Hi, the recording has ended for your message in group {group_id}.\n"
-                    f"Segment ID: {last_item['segment_id']}\n"
-                    f"Start Time: {start_time}\n"
-                    f"End Time: {end_time}"
-                )
+            user_email = user_response["Item"]["email"]
+            email_subject = "Recording Ended"
+            start_time = convert_timestamp_to_utc_plus_8(
+                int(last_item["start_timestamp"])
+            )
+            end_time = convert_timestamp_to_utc_plus_8(int(last_item["end_timestamp"]))
+            email_body = (
+                f"Hi, the recording has ended for your message in group {group_id}.\n"
+                f"Segment ID: {last_item['segment_id']}\n"
+                f"Start Time: {start_time}\n"
+                f"End Time: {end_time}"
+            )
 
-                try:
-                    ses_client.send_email(
-                        Source="TODAM <ptqwe20020413@gmail.com>",
-                        Destination={"ToAddresses": [user_email]},
-                        Message={
-                            "Subject": {"Data": email_subject},
-                            "Body": {"Text": {"Data": email_body}},
-                        },
-                    )
-                    print(f"Email sent to {user_email} about recording ended")
-                except ClientError as e:
-                    print(f"Error sending email: {e.response['Error']['Message']}")
-                except Exception as e:
-                    print(f"An unexpected error occurred: {e}")
+            try:
+                ses_client.send_email(
+                    Source="TODAM <ptqwe20020413@gmail.com>",
+                    Destination={"ToAddresses": [user_email]},
+                    Message={
+                        "Subject": {"Data": email_subject},
+                        "Body": {"Text": {"Data": email_body}},
+                    },
+                )
+                print(f"Email sent to {user_email} about recording ended")
+            except ClientError as e:
+                print(f"Error sending email: {e.response['Error']['Message']}")
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
 
     # Check if the message is a registration request
     registration_match = re.match(r"/register (\S+@ecloudvalley.com)", content)
