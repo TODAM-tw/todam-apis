@@ -7,8 +7,8 @@ from botocore.exceptions import ClientError
 ses_client = boto3.client("ses")
 
 # Configure logger
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel("INFO")
 
 EMAIL_SOURCE = "TODAM <ptqwe20020413@gmail.com>"
 

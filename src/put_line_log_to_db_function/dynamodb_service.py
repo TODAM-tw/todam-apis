@@ -9,8 +9,8 @@ todam_table = dynamodb.Table(TODAM_TABLE_NAME)
 registered_user_table = dynamodb.Table(REGISTERED_USER_TABLE_NAME)
 
 # Configure logger
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel("INFO")
 
 
 def put_item_to_todam_table(item):

@@ -8,8 +8,8 @@ from botocore.exceptions import ClientError
 sqs = boto3.client("sqs")
 
 # Configure logger
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel("INFO")
 
 
 def send_message_to_sqs(

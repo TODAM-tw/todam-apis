@@ -14,8 +14,8 @@ verify_registration_api_url = f"https://{os.environ.get('VERIFY_REGISTRATION_API
 # Configure logger
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel("INFO")
 
 
 def apply_registration(user_id: str, email: str) -> None:
