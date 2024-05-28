@@ -21,11 +21,11 @@ def send_message_to_sqs(
             MessageBody=json.dumps(message),
             MessageGroupId=message_group_id,
         )
-        logger.info(f"Message sent successfully. MessageId: {response['MessageId']}")
+        logger.info("Message sent successfully. MessageId: %s", response["MessageId"])
         return response
     except ClientError as e:
-        logger.error(f"Error sending message to SQS: {e.response['Error']['Message']}")
+        logger.error("Error sending message to SQS: %s", e.response["Error"]["Message"])
         raise
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error("An unexpected error occurred: %s", e)
         raise
