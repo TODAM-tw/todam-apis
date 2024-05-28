@@ -210,6 +210,54 @@ def lambda_handler(event, context):
     todam_table.put_item(Item=item)
 
     if content == "start recording":
+        # Check if there is an ongoing recording
+        response = todam_table.query(
+            IndexName="GroupTimeIndex",
+            KeyConditionExpression=boto3.dynamodb.conditions.Key("group_id").eq(
+                group_id
+            ),
+            FilterExpression=Attr("is_segment").eq(True) & Attr("is_end").eq(False),
+        )
+        items = response.get("Items", [])
+
+        if items:
+            # 已有未結束的錄影段落，發送提醒郵件
+            ongoing_segment = items[-1]
+            segment_id = ongoing_segment["segment_id"]
+            start_timestamp = convert_timestamp_to_utc_plus_8(
+                int(ongoing_segment["start_timestamp"])
+            )
+
+            # 獲取用戶的電子郵件地址
+            response = registered_user_table.get_item(Key={"user_id": user_id})
+            if "Item" in response and "email" in response["Item"]:
+                user_email = response["Item"]["email"]
+                email_subject = "Recording Already Started"
+                email_body = f"Hi, your group {group_id} is already recording.\nSegment ID: {segment_id}\nStart Time: {start_timestamp}"
+
+                try:
+                    ses_client.send_email(
+                        Source="TODAM <ptqwe20020413@gmail.com>",
+                        Destination={"ToAddresses": [user_email]},
+                        Message={
+                            "Subject": {"Data": email_subject},
+                            "Body": {"Text": {"Data": email_body}},
+                        },
+                    )
+                    print(f"Email sent to {user_email} about ongoing recording")
+                except ClientError as e:
+                    print(f"Error sending email: {e.response['Error']['Message']}")
+                except Exception as e:
+                    print(f"An unexpected error occurred: {e}")
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    f"Group {group_id} is already recording. Segment ID: {segment_id}"
+                ),
+            }
+
+        # 沒有未結束的錄影段落，開始新的錄影
         uuid_no_hyphen_for_segment = "".join(str(uuid.uuid4()).split("-"))
         print(f"Generated UUID for segment: {uuid_no_hyphen_for_segment}")
         item = {
@@ -225,6 +273,30 @@ def lambda_handler(event, context):
             "is_end": False,
         }
         todam_table.put_item(Item=item)
+
+        # 獲取用戶的電子郵件地址
+        response = registered_user_table.get_item(Key={"user_id": user_id})
+        if "Item" in response and "email" in response["Item"]:
+            user_email = response["Item"]["email"]
+            email_subject = "Recording Started"
+            email_body = (
+                f"Hi, the recording has started for your message in group {group_id}."
+            )
+
+            try:
+                ses_client.send_email(
+                    Source="TODAM <ptqwe20020413@gmail.com>",
+                    Destination={"ToAddresses": [user_email]},
+                    Message={
+                        "Subject": {"Data": email_subject},
+                        "Body": {"Text": {"Data": email_body}},
+                    },
+                )
+                print(f"Email sent to {user_email}")
+            except ClientError as e:
+                print(f"Error sending email: {e.response['Error']['Message']}")
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
 
     if content == "end recording":
         response = todam_table.query(
