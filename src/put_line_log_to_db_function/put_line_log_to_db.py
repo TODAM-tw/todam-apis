@@ -257,7 +257,7 @@ def lambda_handler(event, context):
                 ),
             }
 
-        # 沒有未結束的錄影段落，開始新的錄影
+        # Start a new recording segment
         uuid_no_hyphen_for_segment = "".join(str(uuid.uuid4()).split("-"))
         print(f"Generated UUID for segment: {uuid_no_hyphen_for_segment}")
         item = {
@@ -274,7 +274,7 @@ def lambda_handler(event, context):
         }
         todam_table.put_item(Item=item)
 
-        # 獲取用戶的電子郵件地址
+        # Get the user's email address
         response = registered_user_table.get_item(Key={"user_id": user_id})
         if "Item" in response and "email" in response["Item"]:
             user_email = response["Item"]["email"]
@@ -316,6 +316,40 @@ def lambda_handler(event, context):
                 f"{convert_timestamp_to_utc_plus_8(int(last_item['start_timestamp']))}_{convert_timestamp_to_utc_plus_8(int(last_item['end_timestamp']))}"
             )
             todam_table.put_item(Item=last_item)
+
+            # Get the user's email address
+            response = registered_user_table.get_item(Key={"user_id": user_id})
+            if "Item" in response and "email" in response["Item"]:
+                user_email = response["Item"]["email"]
+                email_subject = "Recording Ended"
+                start_time = convert_timestamp_to_utc_plus_8(
+                    int(last_item["start_timestamp"])
+                )
+                end_time = convert_timestamp_to_utc_plus_8(
+                    int(last_item["end_timestamp"])
+                )
+                email_body = (
+                    f"Hi, the recording has ended for your message in group {group_id}.\n"
+                    f"Segment ID: {last_item['segment_id']}\n"
+                    f"Start Time: {start_time}\n"
+                    f"End Time: {end_time}"
+                )
+
+                try:
+                    ses_client.send_email(
+                        Source="TODAM <ptqwe20020413@gmail.com>",
+                        Destination={"ToAddresses": [user_email]},
+                        Message={
+                            "Subject": {"Data": email_subject},
+                            "Body": {"Text": {"Data": email_body}},
+                        },
+                    )
+                    print(f"Email sent to {user_email} about recording ended")
+                except ClientError as e:
+                    print(f"Error sending email: {e.response['Error']['Message']}")
+                except Exception as e:
+                    print(f"An unexpected error occurred: {e}")
+
     # Check if the message is a registration request
     registration_match = re.match(r"/register (\S+@ecloudvalley.com)", content)
     if registration_match:
