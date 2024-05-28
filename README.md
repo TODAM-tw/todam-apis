@@ -128,3 +128,42 @@ sam delete --stack-name "todam-apis"
 See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
 
 Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)
+
+```
+todam-apis
+├─ .gitignore
+├─ docs
+├─ events
+│  └─ event.json
+├─ LICENSE
+├─ poetry.lock
+├─ pyproject.toml
+├─ README.md
+├─ samconfig.toml
+├─ src
+│  ├─ create_ticket_function
+│  │  └─ create_ticket.py
+│  ├─ list_segments_function
+│  │  └─ list_segments.py
+│  ├─ list_segment_messages_function
+│  │  └─ list_segment_messages.py
+│  ├─ parse_image_function
+│  │  └─ parse_image.py
+│  ├─ put_line_log_to_db_function
+│  │  └─ put_line_log_to_db.py
+│  ├─ start_recording_chat.py
+│  └─ verify_registration_function
+│     └─ verify_registration.py
+├─ template.yaml
+├─ tests
+│  ├─ integration
+│  │  ├─ test_api_gateway.py
+│  │  └─ __init__.py
+│  ├─ requirements.txt
+│  ├─ unit
+│  │  ├─ test_handler.py
+│  │  └─ __init__.py
+│  └─ __init__.py
+└─<END>
+
+```
