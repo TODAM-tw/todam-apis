@@ -16,9 +16,9 @@ logger.setLevel("INFO")
 def put_item_to_todam_table(item):
     try:
         todam_table.put_item(Item=item)
-        logger.info(f"Item put to {TODAM_TABLE_NAME} table successfully.")
+        logger.info("Item put to %s table successfully.", TODAM_TABLE_NAME)
     except Exception as e:
-        logger.error(f"Error putting item to {TODAM_TABLE_NAME} table: {e}")
+        logger.error("Error putting item to %s table: %s", TODAM_TABLE_NAME, e)
         raise
 
 
@@ -27,7 +27,7 @@ def get_registered_user(user_id):
         response = registered_user_table.get_item(Key={"user_id": user_id})
         return response
     except Exception as e:
-        logger.error(f"Error getting item from {REGISTERED_USER_TABLE_NAME}: {e}")
+        logger.error("Error getting item from %s: %s", REGISTERED_USER_TABLE_NAME, e)
         raise
 
 
@@ -43,5 +43,5 @@ def query_todam_table(group_id):
         )
         return response
     except Exception as e:
-        logger.error(f"Error querying {TODAM_TABLE_NAME} table: {e}")
+        logger.error("Error querying %s table: %s", TODAM_TABLE_NAME, e)
         raise

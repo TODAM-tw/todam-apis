@@ -23,11 +23,11 @@ def send_email(to_address, subject, body):
                 "Body": {"Text": {"Data": body}},
             },
         )
-        logger.info(f"Email sent to {to_address}")
+        logger.info("Email sent to %s", to_address)
         return response
     except ClientError as e:
-        logger.error(f"Error sending email: {e.response['Error']['Message']}")
+        logger.error("Error sending email: %s", e.response["Error"]["Message"])
         raise
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error("An unexpected error occurred: %s", e)
         raise

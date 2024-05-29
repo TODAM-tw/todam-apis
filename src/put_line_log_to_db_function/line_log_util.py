@@ -38,7 +38,7 @@ def load_stickers():
             stickers = json.load(f)
         return stickers
     except Exception as e:
-        logger.error(f"Error loading stickers from {STICKERS_JSON_PATH}: {e}")
+        logger.error("Error loading stickers from %s: %s", STICKERS_JSON_PATH, e)
         raise
 
 
@@ -50,7 +50,7 @@ def handle_image_message(event, key):
         InvocationType="Event",
         Payload=json.dumps(invoke_parse_image_lambda_payload),
     )
-    logger.info(f"Invoked Parse Image Lambda: {PARSE_IMAGE_LAMBDA_FUNCTION_NAME}")
+    logger.info("Invoked Parse Image Lambda: %s", PARSE_IMAGE_LAMBDA_FUNCTION_NAME)
     return {
         "statusCode": 200,
         "body": json.dumps(
@@ -70,7 +70,7 @@ def process_line_log(data):
     send_timestamp = data["events"][0].get("timestamp")
 
     random_uuid = str(uuid.uuid4()).replace("-", "")
-    logger.info(f"Generated UUID: {random_uuid}")
+    logger.info("Generated UUID: %s", random_uuid)
 
     stickers = load_stickers()
 
@@ -149,7 +149,7 @@ def process_line_log(data):
             }
 
         uuid_no_hyphen_for_segment = "".join(str(uuid.uuid4()).split("-"))
-        logger.info(f"Generated UUID for segment: {uuid_no_hyphen_for_segment}")
+        logger.info("Generated UUID for segment: %s", uuid_no_hyphen_for_segment)
         item = {
             "id": uuid_no_hyphen_for_segment,
             "s3_object_key": data["s3_object_key"],
