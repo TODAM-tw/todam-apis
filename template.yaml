@@ -3,7 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: Todam apis
 
 Resources:
-# TODO - 我現在是手動上去 AWS Console 配置 S3 的公開權限，但理想是要在 AWS SAM 上面實現
   TodamBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -14,12 +13,12 @@ Resources:
         BlockPublicPolicy: false
         RestrictPublicBuckets: false
   TodamBucketPolicy:
-      Type: AWS::S3::BucketPolicy
-      Properties:
-        Bucket: !Ref TodamBucket
-        PolicyDocument:
-          Version: "2012-10-17"
-          Statement:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TodamBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
           - Effect: "Allow"
             Principal: "*"
             Action: "s3:GetObject"
@@ -90,11 +89,11 @@ Resources:
         - LambdaInvokePolicy:
             FunctionName: !Ref ParseImageFunction
         - Statement:
-          - Effect: Allow
-            Action:
-              - ses:SendEmail
-              - ses:SendRawEmail
-            Resource: "*"
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
   ListSegmentMessagesApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -151,17 +150,17 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
         - Statement:
-          - Effect: Allow
-            Action:
-              - ssm:GetParameter
-              - ssm:DescribeParameters
-            Resource:
-              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CreateTicketApiKey"
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:DescribeParameters
+              Resource:
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CreateTicketApiKey"
         - Statement:
-          - Effect: Allow
-            Action:
-              - kms:Decrypt
-            Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
   CreateTicketLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -170,7 +169,7 @@ Resources:
       ContentUri: layers/
       CompatibleRuntimes:
         - python3.11
-      LicenseInfo: 'Apache-2.0'
+      LicenseInfo: "Apache-2.0"
       RetentionPolicy: Retain
   VerifyRegistrationApi:
     Type: AWS::Serverless::Api
